@@ -37,6 +37,9 @@ def _cfg(args):
         cfg.set(k.strip(), parse_value(v.strip()))
     if getattr(args, "seed", None) is not None:
         cfg.sim.seed = args.seed
+    if getattr(args, "log_dir", None):
+        cfg.sim.log_dir = args.log_dir
+        cfg.sim.log_name = getattr(args, "scenario", "run") or "run"
     if getattr(args, "walls", None) is not None:
         w = args.walls.strip().lower()
         cfg.world.walls = {"all": ["bottom", "right", "top", "left"], "none": []}.get(
@@ -180,6 +183,8 @@ def main(argv=None):
         sp.add_argument("--set", action="append", metavar="KEY=VALUE")
         sp.add_argument("--config", help="JSON file with nested overrides")
         sp.add_argument("--seed", type=int)
+        sp.add_argument("--log-dir", metavar="DIR",
+                        help="write a JSON-lines event log per run into DIR (one file per seed)")
         sp.add_argument("--walls", metavar="all|none|SIDES",
                         help="physical walls: all, none, or e.g. bottom,left")
         sp.add_argument("--obstacles", choices=["fixed", "circle", "line", "random"],

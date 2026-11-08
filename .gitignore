@@ -1,2 +1,5 @@
 /CLAUDE.md
 /ELEC491_Proposal.docx
+# simulation logs: event logs, scan results, scan console output
+logs/
+logs_*.txt

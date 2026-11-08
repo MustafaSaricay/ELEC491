@@ -52,6 +52,10 @@ python -m parksim steer-test -s miscalibrated   # Ackermann/actuator bench tests
 python -m parksim mc -s worst_case -n 50 --csv runs.csv  # Monte Carlo over seeds
 python -m parksim sweep --param ultrasonic.crosstalk_prob --values 0 0.02 0.05 0.1 -n 10
 python -m parksim config -s laggy               # print the resolved config as JSON
+python -m parksim run -s nominal --log-dir logs/mine     # JSON-lines event log per run (also mc / sweep)
+python tools/scan.py --out logs/scan             # full logged robustness scan (~1,550 runs)
+python tools/analyze_scan.py logs/scan           # results.json + charts; collisions re-simulated
+python tools/report/make_content.py logs/scan    # report content -> node tools/report/build_report.js
 python -m pytest                                # 31 tests (~1.5 min)
 ```
 
@@ -92,7 +96,7 @@ On the car:
 
 ## Effects you can inject
 
-Every value lives in [parksim/config.py](parksim/config.py) and is documented there.
+Every value lives in [parksim/config.py](<Code Base/parksim/config.py>) and is documented there.
 
 | Area | Effects |
 |---|---|

@@ -1,6 +1,6 @@
 # parksim: architecture and models
 
-This document explains **how the simulator is structured** and **how each component is modelled**. For installing and running it, see [README.md](README.md). All default values quoted here come from [parksim/config.py](parksim/config.py), which is the single place to change them.
+This document explains **how the simulator is structured** and **how each component is modelled**. For installing and running it, see [README.md](README.md). All default values quoted here come from [parksim/config.py](<Code Base/parksim/config.py>), which is the single place to change them.
 
 ---
 
@@ -61,6 +61,7 @@ Code Base/
 │   ├── sensors.py          Encoder, Imu, UltrasonicArray, Lidar, BayCamera, DelayLine
 │   ├── comms.py            Link (Wi-Fi), App (heartbeat + mission commands)
 │   ├── simulator.py        main loop, scheduling, latency queues, events, scoring, logging
+│   ├── eventlog.py         optional JSON-lines event log per run (sim.log_dir / --log-dir), events + ground truth
 │   │
 │   │   ── onboard software (portable to the Pi) ──
 │   ├── autonomy.py         Autonomy: sensor callbacks, state machine, safety, planning/tracking glue
@@ -83,6 +84,11 @@ Code Base/
 │   └── ui/
 │       ├── server.py       web interface back end: options -> Config, background jobs, JSON API
 │       └── index.html      the interface (plain HTML/JS, canvas replay, no external libraries)
+├── tools/
+│   ├── scan.py             full logged robustness scan (presets x seeds, combinations, sweeps) -> runs.csv + logs
+│   ├── analyze_scan.py     statistics, failure forensics (re-simulates collisions), charts
+│   └── report/             Word report builder (make_content.py -> build_report.js, docx npm package)
+├── reports/                generated reports (.docx)
 └── tests/
     ├── test_core.py        unit tests: Reeds-Shepp, kinematics, EDT, planner, ICP, EKF, sensor models
     ├── test_scenarios.py   closed-loop regression tests (full simulations)

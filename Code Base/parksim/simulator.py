@@ -3,6 +3,7 @@ driving the onboard Autonomy stack. Ground truth is used only for scoring."""
 from __future__ import annotations
 
 import math
+import os
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -100,6 +101,18 @@ class Simulation:
         self._task_clear = math.inf
         self._task_loc_err = 0.0
         self.t = 0.0
+        self.elog = None
+        if cfg.sim.log_dir:
+            from .eventlog import EventLog
+            path = os.path.join(cfg.sim.log_dir, f"{cfg.sim.log_name or 'run'}_s{cfg.sim.seed:04d}.jsonl")
+            self.elog = EventLog(self, path)
+            self.elog.header(cfg.sim.log_name, cfg.to_dict())
+            car_log = self.autonomy.log
+
+            def logged(t, text):           # every onboard event also goes to the file, with truth
+                car_log(t, text)
+                self.elog.event(t, text)
+            self.autonomy.log = logged
 
     # ------------------------------------------------------------------ #
     def _pose_at(self, times):
@@ -157,7 +170,7 @@ class Simulation:
                   and abs(longi) <= m.success_pos_tol
                   and abs(lat) <= m.success_pos_tol and abs(head) <= math.radians(m.success_yaw_tol_deg))
             est = np.array(task["est_pose"])
-            self.task_eval.append({
+            rec = {
                 "id": task["id"], "kind": task["kind"], "result": task["result"], "success": bool(ok),
                 "time": task["t_end"] - task["t_start"], "t_end": task["t_end"],
                 "err_long": float(longi), "err_lat": float(lat), "err_heading_deg": math.degrees(head),
@@ -168,7 +181,10 @@ class Simulation:
                 "left_testbed": self.left_testbed,
                 "replans": task["replans"], "corrections": task["corrections"],
                 "blocked": task["blocked"], "paused": task["paused"],
-            })
+            }
+            self.task_eval.append(rec)
+            if self.elog:
+                self.elog.task(rec)
             self._task_clear = math.inf
             self._task_loc_err = 0.0
             for ev in [e for e in self.task_events if e["after_task"] == task["id"]]:
@@ -185,7 +201,8 @@ class Simulation:
                                          ("lidar", cfg.lidar.rate_hz), ("cam", cfg.camera.rate_hz),
                                          ("ctl", cfg.control.rate_hz), ("app", 50.0),
                                          ("tel", cfg.comm.telemetry_hz), ("log", cfg.sim.log_hz),
-                                         ("grid", 2.0), ("us", 1.0 / cfg.ultrasonic.ping_interval)]}
+                                         ("grid", 2.0), ("us", 1.0 / cfg.ultrasonic.ping_interval),
+                                         ("elog", max(cfg.sim.log_state_hz, 1e-3))]}
         clk["lidar"].next = 1.0 / cfg.lidar.rate_hz
         L = {k: [] for k in ["t", "x", "y", "yaw", "ex", "ey", "eyaw", "sx", "syaw", "v", "v_ref",
                              "v_est", "delta", "delta_cmd", "duty", "state", "link", "hb_ok",
@@ -284,6 +301,8 @@ class Simulation:
                                  ("wl", wl), ("wr", wr),
                                  ("loc_err", math.hypot(ep[0] - veh.x, ep[1] - veh.y))):
                     L[key].append(val)
+            if self.elog and clk["elog"].due(t):
+                self.elog.state(t)
             if clk["grid"].due(t):
                 grids.append((t, aut.grid.probability().astype(np.float32)))
 
@@ -307,6 +326,8 @@ class Simulation:
 
         log = {k: np.asarray(v) for k, v in L.items()}
         metrics = self._metrics(log)
+        if self.elog:
+            self.elog.close(metrics)
         obstacles = [o for o in self.world.obstacles]
         return SimResult(cfg, log, self.task_eval, aut.events, aut.paths, scans, grids,
                          obstacles, metrics, aut.plan_infos, pings)

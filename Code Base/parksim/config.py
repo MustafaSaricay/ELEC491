@@ -374,6 +374,11 @@ class SimCfg:
     dt: float = 0.005
     seed: int = 0
     log_hz: float = 50.0
+    # Event logging (off when log_dir is empty): one JSON-lines file per run,
+    # <log_dir>/<log_name>_s<seed>.jsonl - see parksim/eventlog.py
+    log_dir: str = ""
+    log_name: str = "run"
+    log_state_hz: float = 1.0
 
 
 @dataclass
