@@ -1,0 +1,2 @@
+[console_scripts]
+parksim = parksim.__main__:main

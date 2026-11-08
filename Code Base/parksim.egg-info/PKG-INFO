@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: parksim
+Version: 0.1.0
+Summary: Simulation environment for the ELEC 491 autonomous parking & summoning vehicle
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.24
+Requires-Dist: matplotlib>=3.7
+Requires-Dist: pillow>=10
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"

@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>parksim</title>
+<style>
+:root {
+  --bg: #f4f3f0; --panel: #fcfcfb; --line: #d9d8d4; --ink: #0b0b0b; --ink2: #52514e; --muted: #8a8984;
+  --accent: #2a78d6; --rev: #eb6834; --est: #1baf7a; --alert: #e34948; --good: #008300; --warn: #c98500;
+  --grid-ink: 11,11,11; --field: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121211; --panel: #1a1a19; --line: #34332f; --ink: #f0efec; --ink2: #c3c2b7; --muted: #8a8984;
+    --accent: #3987e5; --rev: #d95926; --est: #199e70; --alert: #e66767; --good: #2fa52f; --warn: #c98500;
+    --grid-ink: 240,239,236; --field: #232321;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+header h1 { font-size: 15px; margin: 0; font-weight: 650; }
+header .sub { color: var(--ink2); }
+#status { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+#status .txt { color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.bar { width: 160px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.layout { display: grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 47px); }
+aside { background: var(--panel); border-right: 1px solid var(--line); padding: 12px; overflow-y: auto; max-height: calc(100vh - 47px); position: sticky; top: 47px; }
+main { padding: 14px 18px; min-width: 0; }
+details { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; background: var(--panel); }
+summary { cursor: pointer; padding: 8px 10px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
+summary::after { content: "▾"; color: var(--muted); }
+details:not([open]) summary::after { content: "▸"; }
+.body { padding: 4px 10px 10px; }
+label.row { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; margin: 6px 0; color: var(--ink2); }
+select, input[type=number], input[type=text] { width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; }
+.hint { color: var(--muted); font-size: 11.5px; }
+.presets { max-height: 240px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; }
+.preset { display: grid; grid-template-columns: 18px 1fr; gap: 6px; padding: 5px 7px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.preset:last-child { border-bottom: 0; }
+.preset:hover { background: var(--bg); }
+.preset b { font-weight: 600; }
+.preset .d { color: var(--muted); font-size: 11.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; min-height: 22px; }
+.chip { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 1px 8px; font-size: 12px; }
+.walls4 { display: flex; gap: 10px; margin: 2px 0 6px 118px; }
+.ov { display: grid; grid-template-columns: 1fr 90px 24px; gap: 4px; margin: 4px 0; }
+.ov .def { grid-column: 1 / -1; margin-top: -2px; }
+button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--field); color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--ink2); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+.btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.multi { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 8px; }
+.multi label { white-space: nowrap; }
+.dimname { color: var(--ink2); margin-top: 6px; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 14px; color: var(--ink2); }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.view { display: none; }
+.view.on { display: block; }
+.empty { color: var(--muted); padding: 40px 0; text-align: center; }
+.replay { display: grid; grid-template-columns: minmax(300px, 640px) minmax(260px, 1fr); gap: 16px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+#map { width: 100%; aspect-ratio: 1; display: block; border-radius: 6px; background: var(--panel); }
+.ctrl { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ctrl input[type=range] { flex: 1; min-width: 120px; }
+.layers { display: flex; gap: 10px; flex-wrap: wrap; color: var(--ink2); margin-top: 6px; }
+.hud { font-family: ui-monospace, Menlo, monospace; font-size: 12px; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-bottom: 8px; }
+.hud span:nth-child(odd) { color: var(--muted); }
+canvas.chart { width: 100%; height: 120px; display: block; margin-top: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--ink2); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ok { color: var(--good); font-weight: 600; }
+.bad { color: var(--alert); font-weight: 600; }
+.events { max-height: 260px; overflow-y: auto; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.events div { padding: 2px 4px; cursor: pointer; border-radius: 4px; }
+.events div:hover { background: var(--bg); }
+.events .tt { color: var(--muted); display: inline-block; width: 56px; }
+.events .sim { color: var(--alert); }
+.note { background: color-mix(in srgb, var(--warn) 15%, transparent); border: 1px solid var(--warn); border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; }
+.err { background: color-mix(in srgb, var(--alert) 12%, transparent); border: 1px solid var(--alert); border-radius: 6px; padding: 8px 10px; white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; }
+.sbar { display: inline-block; height: 8px; background: var(--accent); border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.big { font-size: 22px; font-weight: 650; }
+.kpis { display: flex; gap: 28px; margin: 4px 0 14px; }
+.kpis .lbl { color: var(--muted); font-size: 11.5px; }
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; max-height: 75vh; font-size: 12px; }
+img.summary { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fcfcfb; }
+h3 { margin: 16px 0 8px; font-size: 14px; }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink2); margin-top: 6px; }
+.legend i { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 4px; border-radius: 2px; }
+@media (max-width: 980px) { .layout { grid-template-columns: 1fr; } aside { position: static; max-height: none; } .replay { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>parksim</h1><span class="sub">autonomous parking &amp; summon simulator</span>
+  <div id="status"><span class="txt" id="stxt">ready</span><div class="bar"><div id="sbar"></div></div>
+    <button id="cancel" style="display:none">Cancel</button></div>
+</header>
+<div class="layout">
+<aside>
+  <details open>
+    <summary>Scenario presets</summary>
+    <div class="body">
+      <input type="text" id="pfilter" placeholder="filter presets...">
+      <div class="chips" id="chips"></div>
+      <div class="presets" id="presets"></div>
+      <div class="hint">Tick several to combine them, applied in the order ticked. Timed events and Wi-Fi outages from all of them are kept; any other setting comes from the last preset.</div>
+    </div>
+  </details>
+  <details open>
+    <summary>World</summary>
+    <div class="body">
+      <label class="row">Walls <select id="walls">
+        <option value="default">preset / default</option><option value="all">all four</option>
+        <option value="none">none (open floor)</option><option value="bottom+left">bottom + left</option>
+        <option value="top only">top only (behind bay)</option><option value="custom">custom...</option></select></label>
+      <div class="walls4" id="walls4" style="display:none">
+        <label><input type="checkbox" value="bottom" checked> bottom</label><label><input type="checkbox" value="right" checked> right</label>
+        <label><input type="checkbox" value="top" checked> top</label><label><input type="checkbox" value="left" checked> left</label></div>
+      <label class="row">Obstacles <select id="omode">
+        <option value="default">preset / default</option><option value="fixed">fixed list</option>
+        <option value="circle">random circles</option><option value="line">random lines</option><option value="random">random mix</option></select></label>
+      <label class="row">How many <input type="number" id="nobs" min="0" max="15" placeholder="4"></label>
+      <label class="row">Placed <select id="timing">
+        <option value="default">preset / default</option><option value="before_park">before parking</option><option value="after_park">after parking</option></select></label>
+    </div>
+  </details>
+  <details open>
+    <summary>Sensors</summary>
+    <div class="body">
+      <label class="row">Range sensing <select id="sensors">
+        <option value="default">preset / default</option><option value="ultrasonic">7× HC-SR04</option>
+        <option value="lidar">360° LiDAR</option><option value="both">both</option></select></label>
+      <label class="row">HC-SR04 firing <select id="firing">
+        <option value="default">preset / default</option><option value="grouped">3 groups (0.18 s)</option>
+        <option value="all">all at once</option><option value="one_by_one">one by one</option></select></label>
+      <label class="row"><span></span><span><input type="checkbox" id="rear"> add 8th sensor straight back</span></label>
+    </div>
+  </details>
+  <details>
+    <summary>Parameter overrides</summary>
+    <div class="body">
+      <div id="ovs"></div>
+      <button id="addov">+ add parameter</button>
+      <div class="hint" style="margin-top:6px">Any config key (type to search), e.g. <code>ultrasonic.crosstalk_prob</code> = <code>0.1</code>. Values are JSON: <code>0.02</code>, <code>true</code>, <code>[[5,7]]</code>.</div>
+      <datalist id="keys"></datalist>
+    </div>
+  </details>
+  <details open>
+    <summary>Run</summary>
+    <div class="body">
+      <label class="row">Seed <input type="number" id="seed" value="0"></label>
+      <label class="row">Runs (MC) <input type="number" id="runs" value="20" min="1" max="500"></label>
+      <div class="btns">
+        <button class="primary" id="bRun">Run &amp; replay</button>
+        <button id="bMC">Monte Carlo</button>
+        <button id="bCfg">Preview config</button>
+      </div>
+    </div>
+  </details>
+  <details>
+    <summary>Combinations (compare)</summary>
+    <div class="body">
+      <div class="hint">Every combination of the ticked values is run on top of the settings above, each as a Monte Carlo. If nothing is ticked in a row, that row keeps the setting above.</div>
+      <div class="dimname">Walls</div>
+      <div class="multi" data-dim="walls"><label><input type="checkbox" value="all"> all</label><label><input type="checkbox" value="none"> none</label><label><input type="checkbox" value="bottom+left"> bottom+left</label><label><input type="checkbox" value="top only"> top only</label></div>
+      <div class="dimname">Obstacles</div>
+      <div class="multi" data-dim="obstacle_mode"><label><input type="checkbox" value="fixed"> fixed</label><label><input type="checkbox" value="circle"> circle</label><label><input type="checkbox" value="line"> line</label><label><input type="checkbox" value="random"> random</label></div>
+      <div class="dimname">Placed</div>
+      <div class="multi" data-dim="obstacle_timing"><label><input type="checkbox" value="before_park"> before parking</label><label><input type="checkbox" value="after_park"> after parking</label></div>
+      <div class="dimname">Range sensing</div>
+      <div class="multi" data-dim="sensors"><label><input type="checkbox" value="ultrasonic"> HC-SR04</label><label><input type="checkbox" value="lidar"> LiDAR</label></div>
+      <div class="dimname">Rear sensor</div>
+      <div class="multi" data-dim="rear_sensor"><label><input type="checkbox" value="false"> 7 sensors</label><label><input type="checkbox" value="true"> 8 sensors</label></div>
+      <label class="row">Runs / variant <input type="number" id="cruns" value="10" min="1" max="200"></label>
+      <div class="hint" id="ccount">1 variant</div>
+      <div class="btns"><button class="primary" id="bCmp">Run comparison</button></div>
+    </div>
+  </details>
+</aside>
+<main>
+  <div class="tabs" id="tabs">
+    <button data-v="replay" class="on">Replay</button><button data-v="summary">Summary figure</button>
+    <button data-v="mc">Monte Carlo</button><button data-v="compare">Compare</button><button data-v="config">Config</button>
+  </div>
+  <section class="view on" id="v-replay"><div class="empty">Choose options on the left and press <b>Run &amp; replay</b>.</div></section>
+  <section class="view" id="v-summary"><div class="empty">Run a simulation to see the summary figure.</div></section>
+  <section class="view" id="v-mc"><div class="empty">Press <b>Monte Carlo</b> to run many seeds with the current settings.</div></section>
+  <section class="view" id="v-compare"><div class="empty">Tick values under <b>Combinations</b> and press <b>Run comparison</b>.</div></section>
+  <section class="view" id="v-config"><div class="empty">Press <b>Preview config</b> to see the resolved configuration.</div></section>
+</main>
+</div>
+
+<!--PRELOAD-->
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const rgba = (hex, a) => { const n = parseInt(hex.replace("#", ""), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+const fmt = (v, d = 2) => (v === null || v === undefined || Number.isNaN(v)) ? "–" : Number(v).toFixed(d);
+let OPTS = null, picked = [], currentJob = null, REPLAY = null;
+
+// ---------------------------------------------------------------- tabs
+function show(v) {
+  $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  $$(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
+  if (v === "replay" && REPLAY) REPLAY.draw();
+}
+$$("#tabs button").forEach(b => b.onclick = () => show(b.dataset.v));
+
+// ---------------------------------------------------------------- form
+function renderPresets() {
+  const f = $("#pfilter").value.toLowerCase();
+  $("#presets").innerHTML = OPTS.presets.filter(p => !f || p.name.includes(f) || p.description.toLowerCase().includes(f))
+    .map(p => `<label class="preset"><input type="checkbox" value="${p.name}" ${picked.includes(p.name) ? "checked" : ""}>
+      <span><b>${p.name}</b><br><span class="d">${esc(p.description)}</span></span></label>`).join("");
+  $$("#presets input").forEach(cb => cb.onchange = () => {
+    picked = cb.checked ? [...picked.filter(n => n !== cb.value), cb.value] : picked.filter(n => n !== cb.value);
+    renderChips();
+  });
+}
+function renderChips() {
+  $("#chips").innerHTML = picked.length ? picked.map((n, i) => `<span class="chip">${i + 1}. ${n}</span>`).join("")
+    : `<span class="hint">none ticked → nominal</span>`;
+}
+$("#pfilter").oninput = renderPresets;
+$("#walls").onchange = () => $("#walls4").style.display = $("#walls").value === "custom" ? "flex" : "none";
+
+function addOverride(key = "", value = "") {
+  const row = document.createElement("div");
+  row.className = "ov";
+  row.innerHTML = `<input type="text" list="keys" placeholder="section.key" value="${esc(key)}">
+    <input type="text" placeholder="value" value="${esc(value)}"><button title="remove">×</button><div class="hint def"></div>`;
+  const [k] = $$("input", row);
+  const upd = () => { const d = OPTS.keys[k.value]; $(".def", row).textContent = k.value ? (d === undefined ? "unknown key" : "default: " + JSON.stringify(d)) : ""; };
+  k.oninput = upd; upd();
+  $("button", row).onclick = () => row.remove();
+  $("#ovs").appendChild(row);
+}
+$("#addov").onclick = () => addOverride();
+
+function spec() {
+  const w = $("#walls").value;
+  return {
+    presets: picked.slice(),
+    walls: w === "custom" ? $$("#walls4 input").filter(c => c.checked).map(c => c.value) : w,
+    obstacle_mode: $("#omode").value, n_obstacles: $("#nobs").value === "" ? null : +$("#nobs").value,
+    obstacle_timing: $("#timing").value, sensors: $("#sensors").value, firing: $("#firing").value,
+    rear_sensor: $("#rear").checked, seed: +$("#seed").value || 0,
+    overrides: $$("#ovs .ov").map(r => { const [k, v] = $$("input", r); return {key: k.value.trim(), value: v.value.trim()}; }).filter(o => o.key),
+  };
+}
+function applySpec(s) {
+  picked = (s.presets || []).slice(); renderPresets(); renderChips();
+  if (Array.isArray(s.walls)) { $("#walls").value = "custom"; $$("#walls4 input").forEach(c => c.checked = s.walls.includes(c.value)); }
+  else $("#walls").value = s.walls || "default";
+  $("#walls").onchange();
+  $("#omode").value = s.obstacle_mode || "default"; $("#nobs").value = s.n_obstacles ?? "";
+  $("#timing").value = s.obstacle_timing || "default"; $("#sensors").value = s.sensors || "default";
+  $("#firing").value = s.firing || "default"; $("#rear").checked = !!s.rear_sensor; $("#seed").value = s.seed ?? 0;
+  $("#ovs").innerHTML = ""; (s.overrides || []).forEach(o => addOverride(o.key, o.value));
+}
+function grid() {
+  const g = {};
+  $$(".multi").forEach(m => {
+    const vals = $$("input", m).filter(c => c.checked).map(c => m.dataset.dim === "rear_sensor" ? c.value === "true" : c.value);
+    if (vals.length) g[m.dataset.dim] = vals;
+  });
+  return g;
+}
+function updateCount() {
+  const n = Object.values(grid()).reduce((a, v) => a * v.length, 1);
+  $("#ccount").textContent = `${n} variant${n === 1 ? "" : "s"} × ${$("#cruns").value} runs = ${n * +$("#cruns").value} simulations`;
+}
+$$(".multi input").forEach(c => c.onchange = updateCount); $("#cruns").oninput = updateCount;
+
+// ---------------------------------------------------------------- jobs
+async function post(path, body) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function setStatus(text, frac) { $("#stxt").textContent = text; $("#sbar").style.width = (100 * (frac ?? 0)) + "%"; }
+function busy(on) { ["#bRun", "#bMC", "#bCmp"].forEach(s => $(s).disabled = on); $("#cancel").style.display = on ? "" : "none"; }
+async function start(body, onDone) {
+  try {
+    const {job} = await post("/api/run", body);
+    currentJob = job; busy(true);
+    const t0 = performance.now();
+    const tick = async () => {
+      const j = await (await fetch("/api/job/" + job)).json();
+      const p = j.progress || {};
+      setStatus(`${p.text || j.status} · ${((performance.now() - t0) / 1000).toFixed(0)} s`, (p.done || 0) / (p.total || 1));
+      if (j.status === "running") return setTimeout(tick, 400);
+      busy(false); currentJob = null;
+      if (j.status === "error") { setStatus("error", 0); alertBox(j.error); return; }
+      setStatus("done" + (j.result && j.result.cancelled ? " (cancelled)" : ""), 1);
+      history.replaceState(null, "", "?job=" + job);
+      onDone(j.result);
+    };
+    tick();
+  } catch (e) { alertBox(e.message); }
+}
+function alertBox(msg) { show("replay"); $("#v-replay").innerHTML = `<div class="err">${esc(msg)}</div>`; }
+$("#cancel").onclick = () => currentJob && post(`/api/job/${currentJob}/cancel`, {});
+
+$("#bRun").onclick = () => { setStatus("starting...", 0); start({kind: "single", spec: spec()}, showSingle); };
+$("#bMC").onclick = () => start({kind: "mc", spec: spec(), runs: +$("#runs").value}, showMC);
+$("#bCfg").onclick = async () => {
+  try {
+    const r = await post("/api/config", {spec: spec()});
+    $("#v-config").innerHTML = notesHTML(r.notes) + `<div class="hint">${esc(r.label)}</div><pre>${esc(JSON.stringify(r.config, null, 2))}</pre>`;
+    show("config");
+  } catch (e) { $("#v-config").innerHTML = `<div class="err">${esc(e.message)}</div>`; show("config"); }
+};
+$("#bCmp").onclick = async () => {
+  const {variants} = await post("/api/variants", {spec: spec(), grid: grid()});
+  start({kind: "compare", variants, runs: +$("#cruns").value}, showCompare);
+};
+const notesHTML = n => (n && n.length) ? `<div class="note">${n.map(esc).join("<br>")}</div>` : "";
+
+// ---------------------------------------------------------------- single run
+function showSingle(d) {
+  $("#v-summary").innerHTML = `<div class="hint">${esc(d.label)}</div><img class="summary" src="data:image/png;base64,${d.summary_png}">`;
+  const m = d.metrics;
+  const tasks = d.tasks.map(t => `<tr><td>#${t.id} ${t.kind}</td><td>${t.result}</td>
+    <td class="${t.success ? "ok" : "bad"}">${t.success ? "SUCCESS" : "FAIL"}</td>
+    <td class="num">${fmt(t.err_pos * 100)}</td><td class="num">${fmt(t.err_lat * 100)}</td><td class="num">${fmt(t.err_long * 100)}</td>
+    <td class="num">${fmt(t.err_heading_deg)}</td><td class="num">${fmt(t.time, 1)}</td><td class="num">${fmt(t.min_clearance * 100, 1)}</td>
+    <td class="num">${t.replans}</td></tr>`).join("");
+  const fs = (m.failsafe || []).map(f => f.moving_at_loss ? `Wi-Fi outage ${f.outage[0]}–${f.outage[1]} s: stopped after ${fmt(f.stop_time)} s / ${fmt(f.stop_distance * 100, 1)} cm` : `Wi-Fi outage ${f.outage[0]}–${f.outage[1]} s (car not moving)`).join("<br>");
+  $("#v-replay").innerHTML = notesHTML(d.notes) + `
+  <div class="hint" style="margin-bottom:8px">${esc(d.label)} · seed ${d.spec ? d.spec.seed ?? 0 : $("#seed").value}</div>
+  <div class="replay">
+    <div class="card">
+      <canvas id="map"></canvas>
+      <div class="ctrl"><button id="play">▶ Play</button><input type="range" id="tslider" min="0" max="1000" value="0">
+        <span id="tlabel" class="hint" style="width:70px;text-align:right">0.0 s</span>
+        <select id="speed" style="width:auto"><option>0.5</option><option selected>1</option><option>2</option><option>4</option><option>8</option></select><span class="hint">×</span></div>
+      <div class="layers">${[["grid", "map"], ["sensors", "sensor beams"], ["est", "estimate"], ["path", "plan"], ["trail", "trails"]]
+        .map(([k, l]) => `<label><input type="checkbox" data-layer="${k}" checked> ${l}</label>`).join("")}</div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>plan forward / true car</span><span><i style="background:var(--rev)"></i>plan reverse</span>
+        <span><i style="background:var(--est)"></i>estimated pose</span><span><i style="background:var(--alert)"></i>low obstacle / LiDAR</span></div>
+    </div>
+    <div>
+      <div class="card"><div class="hud" id="hud"></div>
+        <canvas class="chart" id="c1"></canvas><div class="legend"><span><i style="background:var(--rev)"></i>speed ref</span><span><i style="background:var(--accent)"></i>true</span><span><i style="background:var(--est)"></i>encoder est.</span></div>
+        <canvas class="chart" id="c2"></canvas><div class="legend"><span><i style="background:var(--rev)"></i>steer cmd</span><span><i style="background:var(--accent)"></i>actual</span></div>
+        <canvas class="chart" id="c3"></canvas><div class="legend"><span><i style="background:var(--accent)"></i>loc. error (cm)</span><span><i style="background:var(--est)"></i>EKF 1σ</span></div>
+      </div>
+    </div>
+  </div>
+  <h3>Result</h3>
+  <div class="kpis"><div><div class="big ${m.all_success ? "ok" : "bad"}">${m.all_success ? "ALL TASKS OK" : "FAILED"}</div></div>
+    <div><div class="lbl">localization RMSE</div><div class="big">${fmt(m.loc_rmse * 100)} cm</div></div>
+    <div><div class="lbl">min clearance</div><div class="big">${fmt(m.min_clearance * 100, 1)} cm</div></div>
+    <div><div class="lbl">collision / left testbed</div><div class="big ${m.collided || m.left_testbed ? "bad" : ""}">${m.collided ? "collision" : m.left_testbed ? "left" : "no"}</div></div></div>
+  <table><tr><th>task</th><th>result</th><th></th><th class="num">pos err cm</th><th class="num">lat</th><th class="num">long</th><th class="num">heading °</th><th class="num">time s</th><th class="num">clearance cm</th><th class="num">re-plans</th></tr>${tasks}</table>
+  ${fs ? `<p class="hint">${fs}</p>` : ""}
+  <h3>Events <span class="hint">(click to jump)</span></h3>
+  <div class="card events" id="events">${d.events.map(([t, e]) => `<div data-t="${t}"><span class="tt">${fmt(t, 2)}</span><span class="${e.startsWith("[sim]") ? "sim" : ""}">${esc(e)}</span></div>`).join("")}</div>`;
+  REPLAY = new Replay(d);
+  $$("#events div").forEach(el => el.onclick = () => REPLAY.seek(+el.dataset.t));
+  show("replay");
+}
+
+class Replay {
+  constructor(d) {
+    this.d = d; this.r = d.replay; this.T = this.r.t[this.r.t.length - 1] || 1; this.t = 0; this.playing = false;
+    this.layers = {grid: true, sensors: true, est: true, path: true, trail: true};
+    this.grids = d.grids.map(g => ({t: g.t, img: this.gridImage(g.data)}));
+    this.c = $("#map"); this.ctx = this.c.getContext("2d");
+    $("#play").onclick = () => this.toggle();
+    $("#tslider").oninput = e => this.seek(this.T * e.target.value / 1000);
+    $$("[data-layer]").forEach(cb => cb.onchange = () => { this.layers[cb.dataset.layer] = cb.checked; this.draw(); });
+    this.charts = [this.mkChart("#c1", [["v_ref", "--rev"], ["v", "--accent"], ["v_est", "--est"]], 1),
+                   this.mkChart("#c2", [["delta_cmd", "--rev"], ["delta", "--accent"]], 180 / Math.PI),
+                   this.mkChart("#c3", [["loc_err", "--accent"], ["sx", "--est"]], 100)];
+    new ResizeObserver(() => { this.charts.forEach(c => c.render()); this.draw(); }).observe(this.c);
+    this.draw();
+  }
+  idx(t) { const a = this.r.t; let lo = 0, hi = a.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (a[m] <= t) lo = m; else hi = m - 1; } return lo; }
+  seek(t) { this.t = Math.max(0, Math.min(this.T, t)); this.draw(); }
+  toggle() {
+    this.playing = !this.playing; $("#play").textContent = this.playing ? "❚❚ Pause" : "▶ Play";
+    if (this.playing) { if (this.t >= this.T) this.t = 0; let last = performance.now();
+      const step = now => { if (!this.playing || REPLAY !== this) return;
+        this.t += (now - last) / 1000 * +$("#speed").value; last = now;
+        if (this.t >= this.T) { this.t = this.T; this.toggle(); } this.draw(); requestAnimationFrame(step); };
+      requestAnimationFrame(step); }
+  }
+  gridImage(b64) {
+    const g = this.d.geom.grid, raw = atob(b64), cv = document.createElement("canvas");
+    cv.width = g.nx; cv.height = g.ny;
+    const cx = cv.getContext("2d"), im = cx.createImageData(g.nx, g.ny), ink = css("--grid-ink").split(",").map(Number);
+    for (let iy = 0; iy < g.ny; iy++) for (let ix = 0; ix < g.nx; ix++) {
+      const p = raw.charCodeAt(iy * g.nx + ix), o = ((g.ny - 1 - iy) * g.nx + ix) * 4;
+      im.data[o] = ink[0]; im.data[o + 1] = ink[1]; im.data[o + 2] = ink[2];
+      im.data[o + 3] = p > 140 ? Math.min(200, (p - 128) * 1.6) : 0;
+    }
+    cx.putImageData(im, 0, 0); return cv;
+  }
+  mkChart(sel, series, scale) {
+    const cv = $(sel), r = this.r, self = this;
+    const ch = {cv, render() {
+      const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+      cv.width = W * dpr; cv.height = H * dpr;
+      let lo = Infinity, hi = -Infinity;
+      series.forEach(([k]) => r[k].forEach(v => { if (v !== null) { lo = Math.min(lo, v * scale); hi = Math.max(hi, v * scale); } }));
+      if (lo === hi) { lo -= 1; hi += 1; } const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+      ch.map = {lo, hi, W, H};
+      const off = document.createElement("canvas"); off.width = cv.width; off.height = cv.height;
+      const x = off.getContext("2d"); x.scale(dpr, dpr);
+      x.strokeStyle = css("--line"); x.lineWidth = 1; x.beginPath();
+      if (lo < 0 && hi > 0) { const y0 = H - (0 - lo) / (hi - lo) * H; x.moveTo(0, y0); x.lineTo(W, y0); } x.stroke();
+      x.fillStyle = css("--muted"); x.font = "10px system-ui"; x.fillText(fmt(hi, 2), 2, 10); x.fillText(fmt(lo, 2), 2, H - 2);
+      series.forEach(([k, col]) => { x.strokeStyle = css(col); x.lineWidth = 1.4; x.beginPath(); let pen = false;
+        r[k].forEach((v, i) => { if (v === null) { pen = false; return; } const px = r.t[i] / self.T * W, py = H - (v * scale - lo) / (hi - lo) * H;
+          if (pen) x.lineTo(px, py); else { x.moveTo(px, py); pen = true; } }); x.stroke(); });
+      ch.off = off; ch.draw(self.t); },
+      draw(t) { if (!ch.off) return; const x = cv.getContext("2d"); x.clearRect(0, 0, cv.width, cv.height); x.drawImage(ch.off, 0, 0);
+        const dpr = devicePixelRatio || 1, px = t / self.T * ch.map.W * dpr; x.strokeStyle = css("--ink2"); x.lineWidth = dpr;
+        x.beginPath(); x.moveTo(px, 0); x.lineTo(px, cv.height); x.stroke(); }};
+    ch.render(); return ch;
+  }
+  draw() {
+    if (!document.body.contains(this.c)) return;
+    const d = this.d, G = d.geom, r = this.r, t = this.t, i = this.idx(t), L = this.layers;
+    const dpr = devicePixelRatio || 1, S = this.c.clientWidth; if (!S) return;
+    this.c.width = S * dpr; this.c.height = S * dpr;
+    const x = this.ctx; x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, S, S);
+    const m = 0.08, sc = S / (Math.max(G.width, G.height) + 2 * m);
+    const P = (wx, wy) => [(wx + m) * sc, S - (wy + m) * sc];
+    const poly = (pts, fill, stroke, dash = []) => { x.beginPath(); pts.forEach(([a, b], k) => { const [u, v] = P(a, b); k ? x.lineTo(u, v) : x.moveTo(u, v); });
+      x.closePath(); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.setLineDash(dash); x.strokeStyle = stroke; x.stroke(); x.setLineDash([]); } };
+    const rect = (cx, cy, yaw, l, w) => { const c = Math.cos(yaw), s = Math.sin(yaw);
+      return [[l / 2, w / 2], [-l / 2, w / 2], [-l / 2, -w / 2], [l / 2, -w / 2]].map(([a, b]) => [cx + a * c - b * s, cy + a * s + b * c]); };
+    // occupancy grid
+    if (L.grid && this.grids.length) { let g = null; for (const gg of this.grids) if (gg.t <= t) g = gg;
+      if (g) { const gm = G.grid, [u0, v0] = P(gm.ox, gm.oy + gm.ny * gm.res); x.imageSmoothingEnabled = false;
+        x.drawImage(g.img, u0, v0, gm.nx * gm.res * sc, gm.ny * gm.res * sc); } }
+    // walls
+    const W = G.width, H = G.height, edges = {bottom: [[0, 0], [W, 0]], right: [[W, 0], [W, H]], top: [[W, H], [0, H]], left: [[0, H], [0, 0]]};
+    for (const [side, [a, b]] of Object.entries(edges)) { const on = G.walls.includes(side);
+      x.beginPath(); x.moveTo(...P(...a)); x.lineTo(...P(...b)); x.lineWidth = on ? 3 : 1.2; x.strokeStyle = on ? css("--ink") : css("--muted");
+      x.setLineDash(on ? [] : [6, 5]); x.stroke(); x.setLineDash([]); }
+    // bay + pickup
+    const bay = G.bay, bc = rect(bay.x, bay.y, bay.yaw_deg * Math.PI / 180, bay.depth, bay.width);
+    x.lineWidth = 2.5; x.strokeStyle = css("--ink2"); x.beginPath();
+    [[1, 0], [2, 3], [0, 3]].forEach(([a, b]) => { x.moveTo(...P(...bc[a])); x.lineTo(...P(...bc[b])); }); x.stroke();
+    x.lineWidth = 1; G.summons.forEach(p => poly(rect(p[0], p[1], p[2] * Math.PI / 180, G.vehicle.length, G.vehicle.width), null, css("--ink2"), [3, 3]));
+    // obstacles
+    const lowH = G.lidar.enabled && !G.us.enabled ? G.lidar.mount_height : G.us.mount_height;
+    d.obstacles.forEach(o => { if (o.spawn_t > t + 1e-9) return; const low = o.h <= lowH;
+      x.lineWidth = 1.2; const fill = low ? null : css("--muted"), stroke = low ? css("--alert") : css("--ink2");
+      if (o.kind === "circle") { const [u, v] = P(o.x, o.y); x.beginPath(); x.arc(u, v, o.r * sc, 0, 7); if (fill) { x.fillStyle = fill; x.fill(); }
+        x.setLineDash(low ? [3, 2] : []); x.strokeStyle = stroke; x.stroke(); x.setLineDash([]); }
+      else poly(rect(o.x, o.y, o.yaw, o.l, o.w), fill, stroke, low ? [3, 2] : []); });
+    // plan
+    if (L.path) { let p = null; for (const pp of d.paths) if (pp.t <= t) p = pp;
+      if (p) for (const dir of [1, -1]) { x.strokeStyle = css(dir > 0 ? "--accent" : "--rev"); x.lineWidth = 2; x.beginPath(); let pen = false;
+        p.x.forEach((px, k) => { if (p.dir[k] !== dir) { pen = false; return; } const [u, v] = P(px, p.y[k]); if (pen) x.lineTo(u, v); else { x.moveTo(u, v); pen = true; } }); x.stroke(); } }
+    // trails
+    if (L.trail) { const line = (kx, ky, col, dash) => { x.strokeStyle = col; x.lineWidth = 1; x.setLineDash(dash); x.beginPath();
+        for (let k = 0; k <= i; k++) { const [u, v] = P(r[kx][k], r[ky][k]); k ? x.lineTo(u, v) : x.moveTo(u, v); } x.stroke(); x.setLineDash([]); };
+      line("x", "y", css("--ink2"), []); if (L.est) line("ex", "ey", css("--est"), [4, 3]); }
+    const pose = [r.x[i], r.y[i], r.yaw[i]];
+    // sensor beams
+    if (L.sensors && G.us.enabled) { const half = G.us.half_angle_deg * Math.PI / 180;
+      G.us.sensors.forEach(s => { const pg = d.pings[s.name]; if (!pg) return; let k = -1, lo = 0, hi = pg.length - 1;
+        while (lo <= hi) { const mid = (lo + hi) >> 1; if (pg[mid][0] <= t) { k = mid; lo = mid + 1; } else hi = mid - 1; }
+        if (k < 0 || t - pg[k][0] > 0.4) return; const rr = pg[k][1];
+        const c = Math.cos(pose[2]), sn = Math.sin(pose[2]), sx = pose[0] + s.x * c - s.y * sn, sy = pose[1] + s.x * sn + s.y * c, sa = pose[2] + s.yaw_deg * Math.PI / 180;
+        const [u, v] = P(sx, sy); x.beginPath(); x.moveTo(u, v);
+        if (rr === null) { x.arc(u, v, 0.12 * sc, -(sa + half), -(sa - half)); x.closePath(); x.setLineDash([2, 3]); x.strokeStyle = css("--muted"); x.stroke(); x.setLineDash([]); return; }
+        x.arc(u, v, rr * sc, -(sa + half), -(sa - half)); x.closePath(); x.fillStyle = "rgba(" + css("--grid-ink") + ",0.10)"; x.fill();
+        x.strokeStyle = css("--ink2"); x.lineWidth = 0.8; x.stroke(); }); }
+    if (L.sensors && d.scans.length) { let sc_ = null; for (const s of d.scans) if (s.t <= t) sc_ = s;
+      if (sc_) { x.fillStyle = css("--alert"); sc_.x.forEach((px, k) => { const [u, v] = P(px, sc_.y[k]); x.fillRect(u - 1, v - 1, 2, 2); }); } }
+    // car
+    const V = G.vehicle, off = G.center_offset, car = (p, fill, stroke, dash, wheels) => {
+      const c = Math.cos(p[2]), s = Math.sin(p[2]); poly(rect(p[0] + off * c, p[1] + off * s, p[2], V.length, V.width), fill, stroke, dash);
+      if (!wheels) return; const tw = V.track / 2;
+      [[0, tw, 0], [0, -tw, 0], [V.wheelbase, tw, wheels[0]], [V.wheelbase, -tw, wheels[1]]].forEach(([lx, ly, a]) =>
+        poly(rect(p[0] + lx * c - ly * s, p[1] + lx * s + ly * c, p[2] + a, 0.06, 0.025), css("--ink"), null)); };
+    x.lineWidth = 1.5; car(pose, rgba(css("--accent"), 0.28), css("--accent"), [], [r.wl[i], r.wr[i]]);
+    if (L.est) car([r.ex[i], r.ey[i], r.eyaw[i]], null, css("--est"), [4, 3]);
+    // HUD + charts + slider
+    const st = d.states[r.state[i]] || "?";
+    $("#hud").innerHTML = `<span>time</span><span>${fmt(r.t[i], 2)} s</span><span>state</span><span>${st}</span>
+      <span>speed</span><span>${fmt(r.v[i])} m/s (ref ${fmt(r.v_ref[i])})</span><span>steering</span><span>${fmt(r.delta[i] * 180 / Math.PI, 1)}°</span>
+      <span>loc error</span><span>${fmt(r.loc_err[i] * 100, 1)} cm</span><span>Wi-Fi</span><span class="${r.link[i] ? "" : "bad"}">${r.link[i] ? "up" : "DOWN"}</span>`;
+    this.charts.forEach(ch => ch.draw(t));
+    $("#tslider").value = Math.round(t / this.T * 1000); $("#tlabel").textContent = fmt(t, 1) + " s";
+  }
+}
+
+// ---------------------------------------------------------------- Monte Carlo
+function taskTable(summary) {
+  return `<table><tr><th>task</th><th class="num">success</th><th>outcomes</th><th class="num">pos err mean</th><th class="num">p95</th><th class="num">max (cm)</th>
+    <th class="num">heading p95 °</th><th class="num">time mean s</th><th class="num">re-plans</th></tr>` +
+    Object.entries(summary.tasks).map(([k, v]) => `<tr><td>${k}</td><td class="num">${fmt(v.success_rate * 100, 0)}%</td>
+      <td>${Object.entries(v.outcomes).map(([a, b]) => `${a}: ${b}`).join(", ")}</td><td class="num">${fmt(v.pos_err_cm.mean)}</td>
+      <td class="num">${fmt(v.pos_err_cm.p95)}</td><td class="num">${fmt(v.pos_err_cm.max)}</td><td class="num">${fmt(v.heading_err_deg.p95)}</td>
+      <td class="num">${fmt(v.time_s.mean, 1)}</td><td class="num">${fmt(v.replans_mean, 1)}</td></tr>`).join("") + "</table>";
+}
+function seedTable(seeds, s) {
+  return `<table><tr><th>seed</th><th></th><th>tasks</th><th></th></tr>` + seeds.map(r => `<tr><td>${r.seed}</td>
+    <td class="${r.ok ? "ok" : "bad"}">${r.ok ? "OK" : (r.error ? "ERROR" : r.collided ? "COLLISION" : r.left_testbed ? "LEFT" : "FAIL")}</td>
+    <td>${r.error ? esc(r.error.slice(0, 80)) : r.tasks.map(t => `${t.kind}: <span class="${t.success ? "" : "bad"}">${t.result}</span> ${fmt(t.err_pos * 100, 1)} cm`).join(" · ")}</td>
+    <td><button data-seed="${r.seed}">replay</button></td></tr>`).join("") + "</table>";
+}
+function bindReplay(root, s) {
+  $$("button[data-seed]", root).forEach(b => b.onclick = () => { applySpec({...s, seed: +b.dataset.seed}); $("#bRun").click(); });
+}
+function showMC(d) {
+  const s = d.summary;
+  $("#v-mc").innerHTML = notesHTML(d.notes) + `<div class="hint">${esc(d.label)}${d.cancelled ? " · cancelled early" : ""}</div>
+    <div class="kpis"><div><div class="lbl">runs</div><div class="big">${s.runs}</div></div>
+    <div><div class="lbl">all tasks succeeded</div><div class="big">${fmt(s.success_rate * 100, 0)}%</div></div>
+    <div><div class="lbl">collisions</div><div class="big ${s.collision_rate > 0 ? "bad" : ""}">${fmt(s.collision_rate * 100, 0)}%</div></div></div>
+    ${taskTable(s)}<h3>Per seed <span class="hint">(replay any run)</span></h3>${seedTable(d.seeds)}`;
+  bindReplay($("#v-mc"), d.spec); show("mc");
+}
+
+// ---------------------------------------------------------------- compare
+function showCompare(d) {
+  const rows = d.rows.map((r, k) => { const s = r.summary, tk = Object.values(s.tasks), p = tk[0] || {}, q = tk[1] || {};
+    const firstBad = r.seeds.find(x => !x.ok); return `<tr><td style="white-space:normal;min-width:240px">${esc(r.label)}</td>
+      <td class="num"><span class="sbar" style="width:${Math.round(60 * s.success_rate)}px"></span>${fmt(s.success_rate * 100, 0)}%</td>
+      <td class="num ${s.collision_rate > 0 ? "bad" : ""}">${fmt(s.collision_rate * 100, 0)}%</td>
+      <td class="num">${p.success_rate !== undefined ? fmt(p.success_rate * 100, 0) + "%" : "–"}</td><td class="num">${q.success_rate !== undefined ? fmt(q.success_rate * 100, 0) + "%" : "–"}</td>
+      <td class="num">${p.pos_err_cm ? fmt(p.pos_err_cm.p95) : "–"}</td><td class="num">${q.pos_err_cm ? fmt(q.pos_err_cm.p95) : "–"}</td>
+      <td class="num">${p.time_s ? fmt(p.time_s.mean, 1) : "–"}</td>
+      <td><button data-load="${k}">load</button> ${firstBad ? `<button data-rep="${k}" data-s="${firstBad.seed}">replay fail (seed ${firstBad.seed})</button>` : ""}</td></tr>`; }).join("");
+  $("#v-compare").innerHTML = `<div class="hint">${d.rows.length} variants × ${d.runs} runs${d.cancelled ? " · cancelled early" : ""}</div>
+    <table><tr><th>variant</th><th class="num">all OK</th><th class="num">collisions</th><th class="num">park OK</th><th class="num">summon OK</th>
+    <th class="num">park p95 cm</th><th class="num">summon p95 cm</th><th class="num">park time s</th><th></th></tr>${rows}</table>
+    <p class="hint">“p95 cm” includes failed runs. <b>load</b> puts a variant's settings into the form.</p>`;
+  $$("[data-load]").forEach(b => b.onclick = () => applySpec(d.rows[+b.dataset.load].spec));
+  $$("[data-rep]").forEach(b => b.onclick = () => { applySpec({...d.rows[+b.dataset.rep].spec, seed: +b.dataset.s}); $("#bRun").click(); });
+  show("compare");
+}
+
+// ---------------------------------------------------------------- boot
+function showJob(j) {
+  if (!j || j.status !== "done" || !j.result) return;
+  if (j.result.spec) applySpec(j.result.spec);
+  ({single: showSingle, mc: showMC, compare: showCompare})[j.kind](j.result);
+  const t = new URLSearchParams(location.search).get("t");
+  if (t && j.kind === "single" && REPLAY) REPLAY.seek(+t);
+}
+(async () => {
+  const pre = window.PRELOAD || {};
+  OPTS = pre.options || await (await fetch("/api/options")).json();
+  $("#keys").innerHTML = Object.keys(OPTS.keys).map(k => `<option value="${k}">`).join("");
+  renderPresets(); renderChips(); updateCount();
+  if (OPTS.limits) { $("#runs").max = OPTS.limits.max_runs; $("#cruns").max = OPTS.limits.max_runs;
+    $("#ccount").title = `this server allows ${OPTS.limits.max_sims} simulations per comparison`; }
+  showJob(pre.job);
+})();
+</script>
+</body>
+</html>

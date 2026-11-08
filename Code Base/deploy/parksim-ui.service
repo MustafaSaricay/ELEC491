@@ -1,0 +1,16 @@
+# systemd USER service: the parksim web interface on 127.0.0.1:8765.
+# Install: see deploy/README.md
+[Unit]
+Description=parksim web interface
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Documents/Courses/ELEC491/Code Base
+# Low priority + a worker cap keep the machine usable while simulations run.
+ExecStart="%h/Documents/Courses/ELEC491/Code Base/.venv/bin/python" -m parksim ui --no-browser --workers 4 --max-runs 100 --max-sims 400
+Nice=10
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

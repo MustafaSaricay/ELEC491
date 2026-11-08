@@ -1,0 +1,16 @@
+# systemd USER service: Cloudflare Tunnel that publishes the interface.
+# The tunnel token is NOT stored here - it lives in ~/.config/parksim/tunnel.env
+# (one line: TUNNEL_TOKEN=...), which only you can read. Install: see deploy/README.md
+[Unit]
+Description=Cloudflare Tunnel for parksim
+After=network-online.target parksim-ui.service
+Wants=parksim-ui.service
+
+[Service]
+EnvironmentFile=%h/.config/parksim/tunnel.env
+ExecStart=/usr/local/bin/cloudflared tunnel --no-autoupdate run
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
